@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: windows
   gather_facts: False
   tasks:
 
@@ -27,27 +27,3 @@
       file_type: any
     register: users_rhosts
 
-  - name: Delete .rhosts in root home directory
-    file:
-      path: "/root/.rhosts"
-      state:  absent
-    register: root_rhosts
-
-#  - name: Print a debug message
-#    debug:
-#      msg: "{{ root_rhosts }}"
-
-  - name: Delete all .rhosts in users home directories
-    file:
-      path: "{{ item.path }}"
-      state:  absent
-#    loop: "{{ users_rhosts.files }}"
-    with_items: " {{ users_rhosts.files }} "
-#    loop_control:
-#      label: "{{ item.path }}"
-
-  handlers:
-  - name: Restart inetd
-    service:
-      name: inetd
-      state: restarted
