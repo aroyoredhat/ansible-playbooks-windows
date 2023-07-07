@@ -1,32 +1,53 @@
-- name: Cambiar valor de registro en msconfig
-  hosts: windows
-  gather_facts: false
-
-  vars:
-    reg_path: "HKLM\\SOFTWARE\\Microsoft\\Shared Tools\\MSConfig"
-    reg_value_name: "limit"
-    new_value: "0"
-
+---
+- hosts: all
+  gather_facts: False
   tasks:
-    - name: Guardar valor original de la llave de registro en una variable
-      win_shell: |
-        $regValue = Get-ItemProperty -Path 'Registry::{{ reg_path }}' -Name '{{ reg_value_name }}'
-        $originalValue = $regValue.{{ reg_value_name }}
-        Write-Host "Valor original: $originalValue"
-      register: reg_value_output
 
-    - name: Cambiar valor de la llave de registro
-      win_shell: |
-        Set-ItemProperty -Path 'Registry::{{ reg_path }}' -Name '{{ reg_value_name }}' -Value '{{ new_value }}' -Force
-        Write-Host "Valor cambiado a: {{ new_value }}"
+  - name: Identify if the server use inetd
+    stat:
+      path: /etc/inetd.conf
+    register: exist_inetd
+  - name: Comment the 'login' line in /etc/inetd.conf
+    lineinfile:
+      path: '/etc/inetd.conf'
+      regexp: '(?i)^(login.*)'
+      line: '#\1'
+      backrefs: yes
+      state: present
+    notify:
+    - Restart inetd
+    when:  exist_inetd.stat.exists == True
 
-    - name: Verificar cambio en la llave de registro
-      win_shell: |
-        $regValue = Get-ItemProperty -Path 'Registry::{{ reg_path }}' -Name '{{ reg_value_name }}'
-        $changedValue = $regValue.{{ reg_value_name }}
-        if ($changedValue -eq '{{ new_value }}') {
-          Write-Host "Cambio exitoso"
-        } else {
-          Write-Host "No se pudo realizar el cambio"
-        }
-      register: reg_value_output
+  - name: Recursively find .rhosts in home directories
+    find:
+      paths: /home
+      patterns: ".rhosts"
+      recurse: true
+      hidden: true
+      file_type: any
+    register: users_rhosts
+
+  - name: Delete .rhosts in root home directory
+    file:
+      path: "/root/.rhosts"
+      state:  absent
+    register: root_rhosts
+
+#  - name: Print a debug message
+#    debug:
+#      msg: "{{ root_rhosts }}"
+
+  - name: Delete all .rhosts in users home directories
+    file:
+      path: "{{ item.path }}"
+      state:  absent
+#    loop: "{{ users_rhosts.files }}"
+    with_items: " {{ users_rhosts.files }} "
+#    loop_control:
+#      label: "{{ item.path }}"
+
+  handlers:
+  - name: Restart inetd
+    service:
+      name: inetd
+      state: restarted
