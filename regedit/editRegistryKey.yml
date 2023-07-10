@@ -2,9 +2,9 @@
 - hosts: windows
   gather_facts: False
   tasks:
-- name: Add or update registry path MyCompany, with dword entry 'hello', and containing 1337 as the decimal value
-  ansible.windows.win_regedit:
-    path: HKCU:\Software\MyCompany
-    name: hello
-    data: 1337
-    type: dword
+  - name: Add or update registry path MyCompany, with dword entry 'hello', and containing 1337 as the decimal value
+    ansible.windows.win_regedit:
+      path: HKCU:\Software\MyCompany
+      name: hello
+      data: 1337
+      type: dword
